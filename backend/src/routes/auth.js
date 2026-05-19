@@ -86,7 +86,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role  // Keep original for middleware
       },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 

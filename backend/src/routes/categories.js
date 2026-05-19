@@ -1,15 +1,15 @@
 import express from 'express';
 import pool from '../db/database.js';
-import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Get all categories (global + user's own)
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM categories WHERE is_global = true OR user_id = $1 ORDER BY created_at ASC',
-      [req.user!.id_users]
+      [req.user.id_users]
     );
 
     const categories = result.rows.map(cat => ({
@@ -27,7 +27,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Create category (user's custom category)
-router.post('/', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   const { name } = req.body;
 
   if (!name) {
@@ -37,7 +37,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO categories (name, user_id, is_global) VALUES ($1, $2, $3) RETURNING *',
-      [name, req.user!.id_users, false]
+      [name, req.user.id_users, false]
     );
 
     const cat = result.rows[0];
@@ -57,7 +57,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Delete category (only user's own custom categories)
-router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -77,7 +77,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
       return res.status(403).json({ message: 'Kategori global tidak dapat dihapus' });
     }
 
-    if (category.user_id !== req.user!.id_users) {
+    if (category.user_id !== req.user.id_users) {
       return res.status(403).json({ message: 'Anda tidak memiliki akses untuk menghapus kategori ini' });
     }
 

@@ -1,15 +1,15 @@
 import express from 'express';
 import pool from '../db/database.js';
-import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Get all tasks for logged-in user
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM tasks WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
-      [req.user!.id_users]
+      [req.user.id_users]
     );
 
     // Transform database format to frontend format
@@ -35,7 +35,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Create new task
-router.post('/', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   const { title, description, priority, deadline, category_id } = req.body;
 
   if (!title || !priority || !deadline) {
@@ -45,7 +45,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO tasks (user_id, title, description, priority, deadline, category_id, is_completed) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [req.user!.id_users, title, description, priority, deadline, category_id ? parseInt(category_id) : null, false]
+      [req.user.id_users, title, description, priority, deadline, category_id ? parseInt(category_id) : null, false]
     );
 
     const task = result.rows[0];
@@ -70,14 +70,14 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Update task
-router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { title, description, priority, deadline, category_id } = req.body;
 
   try {
     const result = await pool.query(
       'UPDATE tasks SET title = $1, description = $2, priority = $3, deadline = $4, category_id = $5 WHERE id_tasks = $6 AND user_id = $7 AND deleted_at IS NULL RETURNING *',
-      [title, description, priority, deadline, category_id ? parseInt(category_id) : null, parseInt(id), req.user!.id_users]
+      [title, description, priority, deadline, category_id ? parseInt(category_id) : null, parseInt(id), req.user.id_users]
     );
 
     if (result.rows.length === 0) {
@@ -107,13 +107,13 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Soft delete task
-router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const result = await pool.query(
       'UPDATE tasks SET deleted_at = NOW() WHERE id_tasks = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING *',
-      [parseInt(id), req.user!.id_users]
+      [parseInt(id), req.user.id_users]
     );
 
     if (result.rows.length === 0) {
@@ -128,13 +128,13 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Toggle task completion
-router.patch('/toggle/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.patch('/toggle/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const taskResult = await pool.query(
       'SELECT is_completed FROM tasks WHERE id_tasks = $1 AND user_id = $2 AND deleted_at IS NULL',
-      [parseInt(id), req.user!.id_users]
+      [parseInt(id), req.user.id_users]
     );
 
     if (taskResult.rows.length === 0) {
@@ -173,11 +173,11 @@ router.patch('/toggle/:id', authenticateToken, async (req: AuthRequest, res) => 
 });
 
 // Get trash (deleted tasks)
-router.get('/trash', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/trash', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM tasks WHERE user_id = $1 AND deleted_at IS NOT NULL ORDER BY deleted_at DESC',
-      [req.user!.id_users]
+      [req.user.id_users]
     );
 
     const tasks = result.rows.map(task => ({
@@ -201,13 +201,13 @@ router.get('/trash', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Restore task from trash
-router.patch('/restore/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.patch('/restore/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const result = await pool.query(
       'UPDATE tasks SET deleted_at = NULL WHERE id_tasks = $1 AND user_id = $2 AND deleted_at IS NOT NULL RETURNING *',
-      [parseInt(id), req.user!.id_users]
+      [parseInt(id), req.user.id_users]
     );
 
     if (result.rows.length === 0) {
@@ -222,13 +222,13 @@ router.patch('/restore/:id', authenticateToken, async (req: AuthRequest, res) =>
 });
 
 // Permanent delete
-router.delete('/permanent/:id', authenticateToken, async (req: AuthRequest, res) => {
+router.delete('/permanent/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     const result = await pool.query(
       'DELETE FROM tasks WHERE id_tasks = $1 AND user_id = $2 AND deleted_at IS NOT NULL RETURNING *',
-      [parseInt(id), req.user!.id_users]
+      [parseInt(id), req.user.id_users]
     );
 
     if (result.rows.length === 0) {

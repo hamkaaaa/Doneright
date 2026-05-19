@@ -28,7 +28,7 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(500).json({ message: 'Terjadi kesalahan server' });
 });

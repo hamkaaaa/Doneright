@@ -47,7 +47,7 @@ async function checkSchema() {
       console.log(`${row.column_name}: ${row.data_type}`);
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error:', error.message);
   } finally {
     await pool.end();

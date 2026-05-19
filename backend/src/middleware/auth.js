@@ -1,15 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { Request, Response, NextFunction } from 'express';
 
-export interface AuthRequest extends Request {
-  user?: {
-    id_users: string;
-    email: string;
-    role: string;
-  };
-}
-
-export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -18,7 +9,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -26,7 +17,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   }
 };
 
-export const authenticateAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Akses ditolak. Hanya admin yang diizinkan.' });
   }

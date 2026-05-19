@@ -8,10 +8,10 @@ async function checkUsers() {
       console.log('No users found in database');
     } else {
       result.rows.forEach(user => {
-        console.log(`ID: ${user.id_users}, Username: ${user.username}, Email: ${user.email}, Role: ${user.role}`);
+        console.log(`ID: ${user.id_users}, Username, Email, Role);
       });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error:', error.message);
   } finally {
     await pool.end();

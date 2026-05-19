@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../db/database.js';
-import { authenticateToken, authenticateAdmin, AuthRequest } from '../middleware/auth.js';
+import { authenticateToken, authenticateAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ router.use(authenticateToken);
 router.use(authenticateAdmin);
 
 // Get all tasks (admin monitoring)
-router.get('/tasks', async (req: AuthRequest, res) => {
+router.get('/tasks', async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY created_at DESC'
@@ -36,7 +36,7 @@ router.get('/tasks', async (req: AuthRequest, res) => {
 });
 
 // Get overdue tasks
-router.get('/overdue', async (req: AuthRequest, res) => {
+router.get('/overdue', async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM tasks WHERE deadline < NOW() AND is_completed = false AND deleted_at IS NULL ORDER BY deadline ASC"
@@ -62,7 +62,7 @@ router.get('/overdue', async (req: AuthRequest, res) => {
 });
 
 // Get statistics
-router.get('/statistics', async (req: AuthRequest, res) => {
+router.get('/statistics', async (req, res) => {
   try {
     const totalResult = await pool.query(
       'SELECT COUNT(*) as total FROM tasks WHERE deleted_at IS NULL'
@@ -113,7 +113,7 @@ router.get('/statistics', async (req: AuthRequest, res) => {
 });
 
 // Get all categories (global only for admin)
-router.get('/categories', async (req: AuthRequest, res) => {
+router.get('/categories', async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM categories WHERE is_global = true ORDER BY created_at ASC'
@@ -134,7 +134,7 @@ router.get('/categories', async (req: AuthRequest, res) => {
 });
 
 // Create global category (admin)
-router.post('/categories', async (req: AuthRequest, res) => {
+router.post('/categories', async (req, res) => {
   const { name } = req.body;
 
   if (!name) {
@@ -164,7 +164,7 @@ router.post('/categories', async (req: AuthRequest, res) => {
 });
 
 // Update category (admin)
-router.put('/categories/:id', async (req: AuthRequest, res) => {
+router.put('/categories/:id', async (req, res) => {
   const { id } = req.params;
   const { name } = req.body;
 
@@ -199,7 +199,7 @@ router.put('/categories/:id', async (req: AuthRequest, res) => {
 });
 
 // Delete category (admin, only global categories)
-router.delete('/categories/:id', async (req: AuthRequest, res) => {
+router.delete('/categories/:id', async (req, res) => {
   const { id } = req.params;
 
   try {

@@ -2,10 +2,10 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Helper function untuk handle API calls
-async function apiCall(endpoint: string, options: RequestInit = {}) {
+async function apiCall(endpoint, options = {}) {
   const token = localStorage.getItem('token');
 
-  const headers: HeadersInit = {
+  const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
@@ -30,14 +30,14 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 
 // Authentication API
 export const authAPI = {
-  register: async (username: string, email: string, password: string) => {
+  register: async (username, email, password) => {
     return apiCall('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, email, password }),
     });
   },
 
-  login: async (email: string, password: string) => {
+  login: async (email, password) => {
     return apiCall('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -51,27 +51,27 @@ export const tasksAPI = {
     return apiCall('/tasks');
   },
 
-  create: async (taskData: any) => {
+  create: async (taskData) => {
     return apiCall('/tasks', {
       method: 'POST',
       body: JSON.stringify(taskData),
     });
   },
 
-  update: async (id: string, taskData: any) => {
+  update: async (id, taskData) => {
     return apiCall(`/tasks/${id}`, {
       method: 'PUT',
       body: JSON.stringify(taskData),
     });
   },
 
-  delete: async (id: string) => {
+  delete: async (id) => {
     return apiCall(`/tasks/${id}`, {
       method: 'DELETE',
     });
   },
 
-  toggleComplete: async (id: string) => {
+  toggleComplete: async (id) => {
     return apiCall(`/tasks/toggle/${id}`, {
       method: 'PATCH',
     });
@@ -81,13 +81,13 @@ export const tasksAPI = {
     return apiCall('/tasks/trash');
   },
 
-  restore: async (id: string) => {
+  restore: async (id) => {
     return apiCall(`/tasks/restore/${id}`, {
       method: 'PATCH',
     });
   },
 
-  deletePermanent: async (id: string) => {
+  deletePermanent: async (id) => {
     return apiCall(`/tasks/permanent/${id}`, {
       method: 'DELETE',
     });
@@ -100,14 +100,14 @@ export const categoriesAPI = {
     return apiCall('/categories');
   },
 
-  create: async (name: string) => {
+  create: async (name) => {
     return apiCall('/categories', {
       method: 'POST',
       body: JSON.stringify({ name }),
     });
   },
 
-  delete: async (id: string) => {
+  delete: async (id) => {
     return apiCall(`/categories/${id}`, {
       method: 'DELETE',
     });
@@ -132,21 +132,21 @@ export const adminAPI = {
     return apiCall('/admin/categories');
   },
 
-  createCategory: async (name: string) => {
+  createCategory: async (name) => {
     return apiCall('/admin/categories', {
       method: 'POST',
       body: JSON.stringify({ name }),
     });
   },
 
-  updateCategory: async (id: string, name: string) => {
+  updateCategory: async (id, name) => {
     return apiCall(`/admin/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ name }),
     });
   },
 
-  deleteCategory: async (id: string) => {
+  deleteCategory: async (id) => {
     return apiCall(`/admin/categories/${id}`, {
       method: 'DELETE',
     });
