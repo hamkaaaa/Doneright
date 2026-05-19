@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { User } from '../App';
+import { authAPI } from '../../services/api';
 
 type LoginPageProps = {
   onLogin: (user: User) => void;
@@ -29,30 +30,25 @@ export default function LoginPage({ onLogin, onSwitchToRegister }: LoginPageProp
 
     setLoading(true);
 
-    // Simulasi login (dalam implementasi nyata, ini akan memanggil API backend)
-    setTimeout(() => {
-      // Mock data - admin login
-      if (email === 'admin@doneright.com' && password === 'admin123') {
-        onLogin({
-          user_id: 'admin-001',
-          full_name: 'Admin DoneRight',
-          email: 'admin@doneright.com',
-          role: 'admin'
-        });
-      }
-      // Mock data - mahasiswa login
-      else if (email === 'mahasiswa@undip.ac.id' && password === 'mahasiswa123') {
-        onLogin({
-          user_id: 'user-001',
-          full_name: 'Lanjar Setiawan',
-          email: 'mahasiswa@undip.ac.id',
-          role: 'mahasiswa'
-        });
-      } else {
-        setError('Email atau password salah');
-      }
+    try {
+      // Call backend API
+      const response = await authAPI.login(email, password);
+
+      // Simpan token ke localStorage
+      localStorage.setItem('token', response.token);
+
+      // Login success
+      onLogin({
+        id_users: response.user.id_users,
+        username: response.user.username,
+        email: response.user.email,
+        role: response.user.role
+      });
+    } catch (err: any) {
+      setError(err.message || 'Login gagal. Periksa email dan password Anda.');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -129,17 +125,13 @@ export default function LoginPage({ onLogin, onSwitchToRegister }: LoginPageProp
             </p>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">Demo Credentials:</p>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>Mahasiswa:</strong></p>
-              <p>Email: mahasiswa@undip.ac.id</p>
-              <p>Password: mahasiswa123</p>
-              <p className="mt-2"><strong>Admin:</strong></p>
-              <p>Email: admin@doneright.com</p>
-              <p>Password: admin123</p>
-            </div>
+          {/* Info */}
+          <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs font-semibold text-blue-900 mb-1">🔒 Terkoneksi dengan Backend API</p>
+            <p className="text-xs text-blue-700">
+              Login menggunakan akun yang telah terdaftar di database.
+              Pastikan backend server sudah running.
+            </p>
           </div>
         </div>
       </div>

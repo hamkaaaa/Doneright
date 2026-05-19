@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { User, Task, Category, Priority, TaskStatus } from '../App';
+import { tasksAPI, categoriesAPI } from '../../services/api';
 
 type StudentDashboardProps = {
   user: User;
@@ -7,50 +8,10 @@ type StudentDashboardProps = {
 };
 
 export default function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
-  // Mock data categories
-  const [categories] = useState<Category[]>([
-    { category_id: 'cat-1', category_name: 'Akademik', category_type: 'default', created_at: new Date().toISOString() },
-    { category_id: 'cat-2', category_name: 'Organisasi', category_type: 'default', created_at: new Date().toISOString() },
-    { category_id: 'cat-3', category_name: 'Pribadi', category_type: 'custom', created_at: new Date().toISOString() },
-  ]);
-
-  // Mock data tasks
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      task_id: 'task-1',
-      user_id: user.user_id,
-      category_id: 'cat-1',
-      title: 'Tugas RPL - Dokumen D2',
-      description: 'Menyelesaikan dokumen desain sistem untuk tugas RPL',
-      priority: 'HIGH',
-      deadline: '2026-05-20',
-      status: 'ACTIVE',
-      created_at: new Date().toISOString(),
-    },
-    {
-      task_id: 'task-2',
-      user_id: user.user_id,
-      category_id: 'cat-1',
-      title: 'Tugas Basis Data',
-      description: 'Membuat ERD untuk sistem perpustakaan',
-      priority: 'MEDIUM',
-      deadline: '2026-05-18',
-      status: 'ACTIVE',
-      created_at: new Date().toISOString(),
-    },
-    {
-      task_id: 'task-3',
-      user_id: user.user_id,
-      category_id: 'cat-2',
-      title: 'Rapat HMTC',
-      description: 'Meeting koordinasi divisi IT',
-      priority: 'LOW',
-      deadline: '2026-05-16',
-      status: 'COMPLETED',
-      completed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    },
-  ]);
+  // State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -135,70 +96,82 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     return groups;
   }, [filteredTasks, categories]);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!formData.title || !formData.deadline) {
       alert('Judul dan deadline harus diisi');
       return;
     }
 
-    const newTask: Task = {
-      task_id: `task-${Date.now()}`,
-      user_id: user.user_id,
-      category_id: formData.category_id || undefined,
-      title: formData.title,
-      description: formData.description,
-      priority: formData.priority,
-      deadline: formData.deadline,
-      status: 'ACTIVE',
-      created_at: new Date().toISOString(),
-    };
+    try {
+      const taskData = {
+        title: formData.title,
+        description: formData.description,
+        category_id: formData.category_id || null,
+        priority: formData.priority,
+        deadline: formData.deadline,
+      };
 
-    setTasks([...tasks, newTask]);
-    setShowAddModal(false);
-    setFormData({
-      title: '',
-      description: '',
-      category_id: '',
-      priority: 'MEDIUM',
-      deadline: '',
-    });
-  };
+      await tasksAPI.create(taskData);
+      await loadTasks(); // Reload tasks from API
 
-  const handleEditTask = () => {
-    if (!editingTask) return;
-
-    setTasks(tasks.map(task =>
-      task.task_id === editingTask.task_id
-        ? { ...editingTask, updated_at: new Date().toISOString() }
-        : task
-    ));
-    setEditingTask(null);
-    setShowDetailModal(false);
-  };
-
-  const handleDeleteTask = (taskId: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus tugas ini?')) {
-      setTasks(tasks.map(task =>
-        task.task_id === taskId
-          ? { ...task, deleted_at: new Date().toISOString() }
-          : task
-      ));
-      setShowDetailModal(false);
+      setShowAddModal(false);
+      setFormData({
+        title: '',
+        description: '',
+        category_id: '',
+        priority: 'MEDIUM',
+        deadline: '',
+      });
+    } catch (error: any) {
+      console.error('Error adding task:', error);
+      alert(error.message || 'Gagal menambah tugas');
     }
   };
 
-  const handleToggleComplete = (taskId: string) => {
-    setTasks(tasks.map(task => {
-      if (task.task_id === taskId) {
-        const isCompleted = task.status === 'COMPLETED';
-        return {
-          ...task,
-          status: isCompleted ? 'ACTIVE' : 'COMPLETED',
-          completed_at: isCompleted ? undefined : new Date().toISOString(),
-        };
+  const handleEditTask = async () => {
+    if (!editingTask) return;
+
+    try {
+      const taskData = {
+        title: editingTask.title,
+        description: editingTask.description,
+        category_id: editingTask.category_id || null,
+        priority: editingTask.priority,
+        deadline: editingTask.deadline,
+      };
+
+      await tasksAPI.update(editingTask.task_id, taskData);
+      await loadTasks(); // Reload tasks from API
+
+      setEditingTask(null);
+      setShowDetailModal(false);
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      alert(error.message || 'Gagal mengupdate tugas');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus tugas ini?')) {
+      try {
+        await tasksAPI.delete(taskId); // Soft delete
+        await loadTasks(); // Reload tasks from API
+        setShowDetailModal(false);
+      } catch (error: any) {
+        console.error('Error deleting task:', error);
+        alert(error.message || 'Gagal menghapus tugas');
       }
-      return task;
-    }));
+    }
+  };
+
+  const handleToggleComplete = async (taskId: string) => {
+    try {
+      await tasksAPI.toggleComplete(taskId);
+      await loadTasks(); // Reload tasks from API
+    } catch (error: any) {
+      console.error('Error toggling task:', error);
+      alert(error.message || 'Gagal mengupdate status tugas');
+    }
   };
 
   const getCategoryName = (categoryId?: string) => {
@@ -219,6 +192,33 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       case 'HIGH': return 'High';
       case 'MEDIUM': return 'Medium';
       case 'LOW': return 'Low';
+    }
+  };
+
+  // Load data from backend API
+  useEffect(() => {
+    loadTasks();
+    loadCategories();
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      const response = await tasksAPI.getAll();
+      setTasks(response.tasks || []);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      alert('Gagal memuat data tugas. Pastikan backend server running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const response = await categoriesAPI.getAll();
+      setCategories(response.categories || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
     }
   };
 
@@ -248,7 +248,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `laporan-tugas-${user.full_name}-${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `laporan-tugas-${user.username}-${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
     } else {
       // PDF generation would require a library like jsPDF

@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { User, Task, Category } from '../App';
+import { adminAPI } from '../../services/api';
 
 type AdminDashboardProps = {
   user: User;
@@ -7,64 +8,34 @@ type AdminDashboardProps = {
 };
 
 export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
-  // Mock data - In real app, this would come from API
-  const [allTasks] = useState<Task[]>([
-    {
-      task_id: 'task-1',
-      user_id: 'user-001',
-      category_id: 'cat-1',
-      title: 'Tugas RPL - Dokumen D2',
-      description: 'Menyelesaikan dokumen desain sistem',
-      priority: 'HIGH',
-      deadline: '2026-05-20',
-      status: 'ACTIVE',
-      created_at: new Date().toISOString(),
-    },
-    {
-      task_id: 'task-2',
-      user_id: 'user-001',
-      category_id: 'cat-1',
-      title: 'Tugas Basis Data',
-      description: 'Membuat ERD',
-      priority: 'MEDIUM',
-      deadline: '2026-05-18',
-      status: 'ACTIVE',
-      created_at: new Date().toISOString(),
-    },
-    {
-      task_id: 'task-3',
-      user_id: 'user-002',
-      category_id: 'cat-2',
-      title: 'Tugas Algoritma',
-      description: 'Implementasi sorting',
-      priority: 'HIGH',
-      deadline: '2026-05-12',
-      status: 'OVERDUE',
-      created_at: new Date().toISOString(),
-    },
-    {
-      task_id: 'task-4',
-      user_id: 'user-003',
-      category_id: 'cat-1',
-      title: 'Presentasi PKM',
-      description: 'Persiapan presentasi',
-      priority: 'HIGH',
-      deadline: '2026-05-15',
-      status: 'COMPLETED',
-      completed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    },
-  ]);
-
-  const [categories, setCategories] = useState<Category[]>([
-    { category_id: 'cat-1', category_name: 'Akademik', category_type: 'default', created_at: new Date().toISOString() },
-    { category_id: 'cat-2', category_name: 'Organisasi', category_type: 'default', created_at: new Date().toISOString() },
-    { category_id: 'cat-3', category_name: 'Pribadi', category_type: 'custom', created_at: new Date().toISOString() },
-  ]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'overdue' | 'categories'>('overview');
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+
+  // Load data from backend
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [tasksResponse, categoriesResponse] = await Promise.all([
+        adminAPI.getAllTasks(),
+        adminAPI.getCategories()
+      ]);
+      setAllTasks(tasksResponse.tasks || []);
+      setCategories(categoriesResponse.categories || []);
+    } catch (error) {
+      console.error('Error loading admin data:', error);
+      alert('Gagal memuat data. Pastikan backend server running di http://localhost:5000');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -96,25 +67,23 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     return allTasks.filter(t => !t.deleted_at && t.status === 'OVERDUE');
   }, [allTasks]);
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
       alert('Nama kategori tidak boleh kosong');
       return;
     }
 
-    const newCategory: Category = {
-      category_id: `cat-${Date.now()}`,
-      category_name: newCategoryName,
-      category_type: 'custom',
-      created_at: new Date().toISOString(),
-    };
-
-    setCategories([...categories, newCategory]);
-    setNewCategoryName('');
-    setShowAddCategoryModal(false);
+    try {
+      await adminAPI.createCategory(newCategoryName);
+      await loadData();
+      setNewCategoryName('');
+      setShowAddCategoryModal(false);
+    } catch (error: any) {
+      alert(error.message || 'Gagal menambah kategori');
+    }
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategory = async (categoryId: string) => {
     const tasksWithCategory = allTasks.filter(t => t.category_id === categoryId && !t.deleted_at);
 
     if (tasksWithCategory.length > 0) {
@@ -125,7 +94,12 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       if (!confirmDelete) return;
     }
 
-    setCategories(categories.filter(c => c.category_id !== categoryId));
+    try {
+      await adminAPI.deleteCategory(categoryId);
+      await loadData();
+    } catch (error: any) {
+      alert(error.message || 'Gagal menghapus kategori');
+    }
   };
 
   const getCategoryName = (categoryId?: string) => {
@@ -203,7 +177,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">DoneRight Admin</h1>
-                <p className="text-sm text-gray-600">{user.full_name}</p>
+                <p className="text-sm text-gray-600">{user.username}</p>
               </div>
             </div>
             <button
@@ -217,6 +191,16 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Memuat data...</p>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Navigation Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="flex justify-between items-center border-b">
@@ -532,6 +516,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
               </div>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
 

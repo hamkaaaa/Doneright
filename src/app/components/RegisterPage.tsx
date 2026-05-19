@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { authAPI } from '../../services/api';
 
 type RegisterPageProps = {
   onRegisterSuccess: () => void;
@@ -11,11 +12,13 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }: Reg
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     // Validasi input sisi klien
     if (!fullName || !email || !password || !confirmPassword) {
@@ -40,13 +43,21 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }: Reg
 
     setLoading(true);
 
-    // Simulasi registrasi (dalam implementasi nyata, ini akan memanggil POST /api/auth/register)
-    setTimeout(() => {
-      // Simulasi sukses
-      alert('Registrasi berhasil! Silakan login.');
-      onRegisterSuccess();
+    try {
+      // Call backend API
+      await authAPI.register(fullName, email, password);
+
+      // Registrasi berhasil
+      setSuccess('Registrasi berhasil! Silakan login.');
+
+      // Redirect ke login setelah 2 detik
+      setTimeout(() => {
+        onRegisterSuccess();
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || 'Registrasi gagal. Silakan coba lagi.');
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -71,6 +82,12 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }: Reg
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+                {success}
               </div>
             )}
 

@@ -5,8 +5,8 @@ import StudentDashboard from './components/StudentDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
 export type User = {
-  user_id: string;
-  full_name: string;
+  id_users: string;
+  username: string;
   email: string;
   role: 'mahasiswa' | 'admin';
 };
