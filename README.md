@@ -23,44 +23,92 @@ Sistem manajemen tugas untuk mahasiswa dengan fitur lengkap untuk mengelola, mem
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18.3 + TypeScript
+### Frontend
+- **Framework**: React 18.3 + TypeScript
 - **Styling**: Tailwind CSS v4
 - **Build Tool**: Vite 6.3
 - **Package Manager**: pnpm
+
+### Backend
+- **Runtime**: Node.js
+- **Framework**: Express.js + TypeScript
+- **Database**: PostgreSQL (Supabase)
+- **Authentication**: JWT
+- **Password Hashing**: bcryptjs
 
 ## 📦 Instalasi
 
 ### Prerequisites
 - Node.js 18+ 
 - pnpm (recommended) atau npm
+- Akun [Supabase](https://supabase.com) untuk database
 
-### Install Dependencies
+### 1. Install Dependencies
 
+**Frontend:**
 ```bash
 pnpm install
 ```
 
-atau jika menggunakan npm:
-
+**Backend:**
 ```bash
-npm install
+cd backend
+pnpm install
+```
+
+### 2. Setup Database
+
+1. Buat project baru di [Supabase](https://supabase.com)
+2. Copy connection string dari Settings > Database
+3. Jalankan schema SQL:
+   - Buka `backend/schema.sql`
+   - Copy semua isi file
+   - Paste dan jalankan di Supabase SQL Editor
+
+### 3. Setup Environment Variables
+
+**Frontend** (root folder):
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+**Backend:**
+```bash
+cd backend
+cp .env.example .env
+```
+
+Edit `backend/.env`:
+```env
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+JWT_SECRET=your_super_secret_jwt_key_change_this
+PORT=5000
+NODE_ENV=development
 ```
 
 ## 🏃 Development
 
-Jalankan development server:
+### Jalankan Backend Server
+
+```bash
+cd backend
+pnpm dev
+```
+
+Backend akan berjalan di `http://localhost:5000`
+
+### Jalankan Frontend (terminal baru)
 
 ```bash
 pnpm dev
 ```
 
-atau:
-
-```bash
-npm run dev
-```
-
-Aplikasi akan berjalan di `http://localhost:3000`
+Frontend akan berjalan di `http://localhost:3000`
 
 ## 🏗️ Build Production
 
@@ -129,23 +177,38 @@ VITE_API_URL=https://your-api-url.com
 ## 📁 Project Structure
 
 ```
-src/
-├── app/
-│   ├── App.tsx              # Main app component
-│   └── components/
-│       ├── LoginPage.tsx
-│       ├── RegisterPage.tsx
-│       ├── StudentDashboard.tsx
-│       ├── AdminDashboard.tsx
-│       └── UserFlowDiagram.tsx
-├── styles/
-│   ├── theme.css           # Tailwind theme & tokens
-│   └── fonts.css           # Font imports
-└── main.tsx                # App entry point
-
-index.html                  # HTML entry point
-vite.config.ts             # Vite configuration
-vercel.json                # Vercel deployment config
+├── src/                    # Frontend source
+│   ├── app/
+│   │   ├── App.tsx              # Main app component
+│   │   └── components/
+│   │       ├── LoginPage.tsx
+│   │       ├── RegisterPage.tsx
+│   │       ├── StudentDashboard.tsx
+│   │       ├── AdminDashboard.tsx
+│   │       └── UserFlowDiagram.tsx
+│   ├── services/
+│   │   └── api.ts              # API service layer
+│   └── styles/
+│       ├── theme.css           # Tailwind theme & tokens
+│       └── fonts.css           # Font imports
+├── backend/                # Backend source
+│   ├── src/
+│   │   ├── db/
+│   │   │   └── database.ts     # Database connection
+│   │   ├── middleware/
+│   │   │   └── auth.ts         # JWT authentication
+│   │   └── routes/
+│   │       ├── auth.ts         # Auth endpoints
+│   │       ├── tasks.ts        # Tasks endpoints
+│   │       ├── categories.ts   # Categories endpoints
+│   │       └── admin.ts        # Admin endpoints
+│   ├── server.ts           # Main server file
+│   ├── schema.sql          # Database schema
+│   └── package.json        # Backend dependencies
+├── index.html              # HTML entry point
+├── vite.config.ts          # Vite configuration
+├── vercel.json             # Vercel deployment config
+└── package.json            # Frontend dependencies
 ```
 
 ## 🎨 Use Cases Implemented
