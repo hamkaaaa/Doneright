@@ -4,20 +4,29 @@ import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all categories
+// Get all categories (global + user's own)
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM categories ORDER BY created_at ASC'
+      'SELECT * FROM categories WHERE is_global = true OR user_id = $1 ORDER BY created_at ASC',
+      [req.user!.id_users]
     );
-    res.json({ categories: result.rows });
+
+    const categories = result.rows.map(cat => ({
+      category_id: cat.id_categories.toString(),
+      category_name: cat.name,
+      category_type: cat.is_global ? 'default' : 'custom',
+      created_at: cat.created_at
+    }));
+
+    res.json({ categories });
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Create category (user can create custom categories)
+// Create category (user's custom category)
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const { name } = req.body;
 
@@ -27,43 +36,59 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO categories (category_name, category_type) VALUES ($1, $2) RETURNING *',
-      [name, 'custom']
+      'INSERT INTO categories (name, user_id, is_global) VALUES ($1, $2, $3) RETURNING *',
+      [name, req.user!.id_users, false]
     );
-    res.status(201).json({ message: 'Kategori berhasil ditambahkan', category: result.rows[0] });
+
+    const cat = result.rows[0];
+    res.status(201).json({
+      message: 'Kategori berhasil ditambahkan',
+      category: {
+        category_id: cat.id_categories.toString(),
+        category_name: cat.name,
+        category_type: 'custom',
+        created_at: cat.created_at
+      }
+    });
   } catch (error) {
     console.error('Create category error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Delete category (only custom categories can be deleted)
+// Delete category (only user's own custom categories)
 router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
   const { id } = req.params;
 
   try {
-    // Check if category is default
+    // Check if category belongs to user and is not global
     const categoryCheck = await pool.query(
-      'SELECT category_type FROM categories WHERE category_id = $1',
-      [id]
+      'SELECT is_global, user_id FROM categories WHERE id_categories = $1',
+      [parseInt(id)]
     );
 
     if (categoryCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Kategori tidak ditemukan' });
     }
 
-    if (categoryCheck.rows[0].category_type === 'default') {
-      return res.status(403).json({ message: 'Kategori default tidak dapat dihapus' });
+    const category = categoryCheck.rows[0];
+
+    if (category.is_global) {
+      return res.status(403).json({ message: 'Kategori global tidak dapat dihapus' });
+    }
+
+    if (category.user_id !== req.user!.id_users) {
+      return res.status(403).json({ message: 'Anda tidak memiliki akses untuk menghapus kategori ini' });
     }
 
     // Set category_id to NULL for tasks using this category
     await pool.query(
       'UPDATE tasks SET category_id = NULL WHERE category_id = $1',
-      [id]
+      [parseInt(id)]
     );
 
     // Delete category
-    await pool.query('DELETE FROM categories WHERE category_id = $1', [id]);
+    await pool.query('DELETE FROM categories WHERE id_categories = $1', [parseInt(id)]);
 
     res.json({ message: 'Kategori berhasil dihapus' });
   } catch (error) {

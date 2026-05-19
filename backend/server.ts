@@ -33,25 +33,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ message: 'Terjadi kesalahan server' });
 });
 
-// Cron job to update overdue tasks
-const updateOverdueTasks = async () => {
-  try {
-    await pool.query(
-      "UPDATE tasks SET status = 'OVERDUE' WHERE deadline < NOW() AND status = 'ACTIVE' AND deleted_at IS NULL"
-    );
-    console.log('✅ Overdue tasks updated');
-  } catch (error) {
-    console.error('❌ Error updating overdue tasks:', error);
-  }
-};
-
-// Run cron job every hour
-setInterval(updateOverdueTasks, 60 * 60 * 1000);
-
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/api`);
-  // Run initial overdue check
-  updateOverdueTasks();
+  console.log(`✅ Connected to database`);
 });

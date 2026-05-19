@@ -16,7 +16,7 @@ router.post('/register', async (req, res) => {
   try {
     // Check if email already exists
     const userCheck = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT * FROM users WHERE email = $1 AND role IS NOT NULL',
       [email]
     );
 
@@ -27,15 +27,20 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new user
+    // Insert new user (use "user" role in database, frontend sees it as "mahasiswa")
     const result = await pool.query(
-      'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id_users, username, email, role',
-      [username, email, hashedPassword, 'mahasiswa']
+      'INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id_users, username, email, role',
+      [username, email, hashedPassword, 'user']
     );
 
     res.status(201).json({
       message: 'Registrasi berhasil',
-      user: result.rows[0]
+      user: {
+        id_users: result.rows[0].id_users,
+        username: result.rows[0].username,
+        email: result.rows[0].email,
+        role: 'mahasiswa'  // Send as "mahasiswa" to frontend
+      }
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -54,7 +59,7 @@ router.post('/login', async (req, res) => {
   try {
     // Find user
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT * FROM users WHERE email = $1 AND role IS NOT NULL',
       [email]
     );
 
@@ -65,18 +70,21 @@ router.post('/login', async (req, res) => {
     const user = result.rows[0];
 
     // Check password
-    const validPassword = await bcrypt.compare(password, user.password);
+    const validPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!validPassword) {
       return res.status(401).json({ message: 'Email atau password salah' });
     }
+
+    // Map database role to frontend role
+    const frontendRole = user.role === 'user' ? 'mahasiswa' : user.role;
 
     // Generate JWT token
     const token = jwt.sign(
       {
         id_users: user.id_users,
         email: user.email,
-        role: user.role
+        role: user.role  // Keep original for middleware
       },
       process.env.JWT_SECRET!,
       { expiresIn: '24h' }
@@ -89,7 +97,7 @@ router.post('/login', async (req, res) => {
         id_users: user.id_users,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: frontendRole  // Send mapped role to frontend
       }
     });
   } catch (error) {

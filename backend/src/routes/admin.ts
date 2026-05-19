@@ -14,7 +14,21 @@ router.get('/tasks', async (req: AuthRequest, res) => {
     const result = await pool.query(
       'SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY created_at DESC'
     );
-    res.json({ tasks: result.rows });
+
+    const tasks = result.rows.map(task => ({
+      task_id: task.id_tasks.toString(),
+      user_id: task.user_id.toString(),
+      category_id: task.category_id ? task.category_id.toString() : null,
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      deadline: task.deadline,
+      status: task.is_completed ? 'COMPLETED' : (new Date(task.deadline) < new Date() && !task.is_completed ? 'OVERDUE' : 'ACTIVE'),
+      completed_at: task.completed_at,
+      created_at: task.created_at
+    }));
+
+    res.json({ tasks });
   } catch (error) {
     console.error('Get all tasks error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
@@ -25,9 +39,22 @@ router.get('/tasks', async (req: AuthRequest, res) => {
 router.get('/overdue', async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM tasks WHERE status = 'OVERDUE' AND deleted_at IS NULL ORDER BY deadline ASC"
+      "SELECT * FROM tasks WHERE deadline < NOW() AND is_completed = false AND deleted_at IS NULL ORDER BY deadline ASC"
     );
-    res.json({ tasks: result.rows });
+
+    const tasks = result.rows.map(task => ({
+      task_id: task.id_tasks.toString(),
+      user_id: task.user_id.toString(),
+      category_id: task.category_id ? task.category_id.toString() : null,
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      deadline: task.deadline,
+      status: 'OVERDUE',
+      created_at: task.created_at
+    }));
+
+    res.json({ tasks });
   } catch (error) {
     console.error('Get overdue tasks error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
@@ -42,15 +69,15 @@ router.get('/statistics', async (req: AuthRequest, res) => {
     );
 
     const completedResult = await pool.query(
-      "SELECT COUNT(*) as completed FROM tasks WHERE status = 'COMPLETED' AND deleted_at IS NULL"
+      "SELECT COUNT(*) as completed FROM tasks WHERE is_completed = true AND deleted_at IS NULL"
     );
 
     const activeResult = await pool.query(
-      "SELECT COUNT(*) as active FROM tasks WHERE status = 'ACTIVE' AND deleted_at IS NULL"
+      "SELECT COUNT(*) as active FROM tasks WHERE is_completed = false AND deadline >= NOW() AND deleted_at IS NULL"
     );
 
     const overdueResult = await pool.query(
-      "SELECT COUNT(*) as overdue FROM tasks WHERE status = 'OVERDUE' AND deleted_at IS NULL"
+      "SELECT COUNT(*) as overdue FROM tasks WHERE is_completed = false AND deadline < NOW() AND deleted_at IS NULL"
     );
 
     const highPriorityResult = await pool.query(
@@ -85,20 +112,28 @@ router.get('/statistics', async (req: AuthRequest, res) => {
   }
 });
 
-// Get all categories
+// Get all categories (global only for admin)
 router.get('/categories', async (req: AuthRequest, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM categories ORDER BY created_at ASC'
+      'SELECT * FROM categories WHERE is_global = true ORDER BY created_at ASC'
     );
-    res.json({ categories: result.rows });
+
+    const categories = result.rows.map(cat => ({
+      category_id: cat.id_categories.toString(),
+      category_name: cat.name,
+      category_type: 'default',
+      created_at: cat.created_at
+    }));
+
+    res.json({ categories });
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Create category (admin)
+// Create global category (admin)
 router.post('/categories', async (req: AuthRequest, res) => {
   const { name } = req.body;
 
@@ -108,10 +143,20 @@ router.post('/categories', async (req: AuthRequest, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO categories (category_name, category_type) VALUES ($1, $2) RETURNING *',
-      [name, 'custom']
+      'INSERT INTO categories (name, user_id, is_global) VALUES ($1, NULL, $2) RETURNING *',
+      [name, true]
     );
-    res.status(201).json({ message: 'Kategori berhasil ditambahkan', category: result.rows[0] });
+
+    const cat = result.rows[0];
+    res.status(201).json({
+      message: 'Kategori berhasil ditambahkan',
+      category: {
+        category_id: cat.id_categories.toString(),
+        category_name: cat.name,
+        category_type: 'default',
+        created_at: cat.created_at
+      }
+    });
   } catch (error) {
     console.error('Create category error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
@@ -129,48 +174,57 @@ router.put('/categories/:id', async (req: AuthRequest, res) => {
 
   try {
     const result = await pool.query(
-      'UPDATE categories SET category_name = $1 WHERE category_id = $2 RETURNING *',
-      [name, id]
+      'UPDATE categories SET name = $1 WHERE id_categories = $2 RETURNING *',
+      [name, parseInt(id)]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Kategori tidak ditemukan' });
     }
 
-    res.json({ message: 'Kategori berhasil diupdate', category: result.rows[0] });
+    const cat = result.rows[0];
+    res.json({
+      message: 'Kategori berhasil diupdate',
+      category: {
+        category_id: cat.id_categories.toString(),
+        category_name: cat.name,
+        category_type: cat.is_global ? 'default' : 'custom',
+        created_at: cat.created_at
+      }
+    });
   } catch (error) {
     console.error('Update category error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
-// Delete category (admin)
+// Delete category (admin, only global categories)
 router.delete('/categories/:id', async (req: AuthRequest, res) => {
   const { id } = req.params;
 
   try {
-    // Check if category is default
+    // Check if category is global
     const categoryCheck = await pool.query(
-      'SELECT category_type FROM categories WHERE category_id = $1',
-      [id]
+      'SELECT is_global FROM categories WHERE id_categories = $1',
+      [parseInt(id)]
     );
 
     if (categoryCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Kategori tidak ditemukan' });
     }
 
-    if (categoryCheck.rows[0].category_type === 'default') {
-      return res.status(403).json({ message: 'Kategori default tidak dapat dihapus' });
+    if (!categoryCheck.rows[0].is_global) {
+      return res.status(403).json({ message: 'Hanya kategori global yang dapat dihapus oleh admin' });
     }
 
     // Set category_id to NULL for tasks using this category
     await pool.query(
       'UPDATE tasks SET category_id = NULL WHERE category_id = $1',
-      [id]
+      [parseInt(id)]
     );
 
     // Delete category
-    await pool.query('DELETE FROM categories WHERE category_id = $1', [id]);
+    await pool.query('DELETE FROM categories WHERE id_categories = $1', [parseInt(id)]);
 
     res.json({ message: 'Kategori berhasil dihapus' });
   } catch (error) {
